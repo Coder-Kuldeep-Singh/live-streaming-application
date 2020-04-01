@@ -1,0 +1,221 @@
+<!-- File: ./static/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+    />
+    <title>Live streamer | Dashboard</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="container-fluid row shadow p-1 mb-3">
+        <div class="col-3">
+          <img
+            class="ml-3"
+            src="https://www.onlinelogomaker.com/blog/wp-content/uploads/2017/07/Fotolia_117855281_Subscription_Monthly_M.jpg"
+            height="72px"
+            width="72px"
+          />
+        </div>
+        <div class="col-6 ml-auto mt-3">
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control"
+              aria-label="Text input with dropdown button"
+            />
+            <div class="input-group-append">
+              <button
+                class="btn btn-outline-secondary dropdown-toggle"
+                type="button"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="col-3 float-right">
+          <img
+            src="https://www.seoclerk.com/pics/319222-1IvI0s1421931178.png"
+            height="72px"
+            width="72px"
+            class="rounded-circle border"
+          />
+          <p class="mr-auto mt-3 d-inline">{{ username }}</p>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-8">
+            <div class="embed-responsive embed-responsive-16by9">
+              <iframe
+                width="854"
+                height="480"
+                class="embed-responsive-item"
+                src="https://www.youtube.com/embed/VYOjWnS4cMY"
+                frameborder="0"
+                allow="autoplay; encrypted-media"
+                allowfullscreen
+              ></iframe>
+            </div>
+            <div
+              class="text-center mt-3 p-3 text-muted font-weight-bold border"
+            >
+              {{ member }} person(s) is/are currently viewing this video
+              <hr />
+              <li
+                class="m-auto text-success"
+                v-for="member in connectedMembers"
+              >
+                {{ member }}
+              </li>
+            </div>
+          </div>
+          <div
+            class="col-4 border text-justify"
+            style="background: #e0e0e0; height: 30em; overflow-y: scroll; position: relative;"
+          >
+            <div
+              class="border invisible h-50 w-75 text-center"
+              ref="added"
+              style="font-size: 2rem; position: absolute; right: 0; background: #48cbe0"
+            >
+              {{ addedMember }} just started watching.
+            </div>
+            <div
+              class="border invisible h-50 w-75 text-center"
+              ref="removed"
+              style="font-size: 2rem; position: absolute; right: 0; background: #ff8325"
+            >
+              {{ removedMember }} just stopped watching.
+            </div>
+            <div class="h-75 text-center">
+              <h2 class="text-center my-3">Lyrics</h2>
+              <p class="w-75 m-auto" style="font-size: 1.5rem">
+                We just wanna party<br />
+                Party just for you<br />
+                We just want the money<br />
+                Money just for you<br />
+                I know you wanna party<br />
+                Party just for me<br />
+                Girl, you got me dancin' (yeah, girl, you got me dancin')<br />
+                Dance and shake the frame<br />
+                We just wanna party (yeah)<br />
+                Party just for you (yeah)<br />
+                We just want the money (yeah)<br />
+                Money just for you (you)<br />
+                I know you wanna party (yeah)<br />
+                Party just for me (yeah)<br />
+                Girl, you got me dancin' (yeah, girl, you got me dancin')<br />
+                Dance and shake the frame (you)<br />
+                This is America<br />
+                Don't catch you slippin' up<br />
+                Don't catch you slippin' up<br />
+                Look what I'm whippin' up<br />
+                This is America (woo)<br />
+                Don't catch you slippin' up<br />
+                Don't catch you slippin' up<br />
+                Look what I'm whippin' up<br />
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://js.pusher.com/4.2/pusher.min.js"></script>
+    <script>
+      var app = new Vue({
+        el: "#app",
+        data: {
+          username: "",
+          member: 0,
+          addedMember: "",
+          removedMember: "",
+          connectedMembers: []
+        },
+
+        created() {
+          fetch("/isLoggedIn", {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            }
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data != "false") {
+                this.username = data.username;
+              } else {
+                window.location.replace("/");
+              }
+            });
+
+          this.subscribe();
+        },
+
+        methods: {
+          subscribe: function() {
+            const pusher = new Pusher("PUSHER_APP_KEY", {
+              authEndpoint: "/pusher/auth",
+              cluster: "PUSHER_APP_CLUSTER",
+              encrypted: true
+            });
+
+            let channel = pusher.subscribe("presence-channel");
+
+            channel.bind("pusher:subscription_succeeded", data => {
+              this.member = data.count;
+              data.each(member => this.connectedMembers.push(member.id));
+            });
+
+            // Display a notification when a member comes online
+            channel.bind("pusher:member_added", data => {
+              this.member++;
+              this.connectedMembers.push(data.id);
+              this.addedMember = data.id;
+
+              this.$refs.added.classList.add("visible");
+              this.$refs.added.classList.remove("invisible");
+
+              window.setTimeout(() => {
+                this.$refs.added.classList.remove("visible");
+                this.$refs.added.classList.add("invisible");
+              }, 3000);
+            });
+
+            // Display a notification when a member goes offline
+            channel.bind("pusher:member_removed", data => {
+              this.member--;
+              let index = this.connectedMembers.indexOf(data.id);
+
+              if (index > -1) {
+                this.connectedMembers.splice(index, 1);
+              }
+
+              this.removedMember = data.id;
+              this.$refs.removed.classList.add("visible");
+              this.$refs.removed.classList.remove("invisible");
+
+              window.setTimeout(() => {
+                this.$refs.removed.classList.remove("visible");
+                this.$refs.removed.classList.add("invisible");
+              }, 3000);
+            });
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
